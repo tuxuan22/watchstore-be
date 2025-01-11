@@ -2,8 +2,11 @@ const Coupon = require('../models/coupon')
 const asyncHandler = require('express-async-handler')
 
 const createNewCoupon = asyncHandler(async (req, res) => {
-    const { name, discount, expiry } = req.body
-    if (!name || !discount || !expiry) throw new Error('Nhập vào các trường')
+    const { name, discount, expiry, code, discountType } = req.body
+    if (!name || !discount || !expiry || !code || !discountType) throw new Error('Nhập vào các trường')
+    if (discountType === 'PERCENTAGE' && (discount <= 0 || discount > 100)) throw new Error('Phần trăm giảm giá từ 0 đến 100')
+    if (discountType === 'FIXED' && discount <= 0) throw new Error('Giá trị giảm giá phải lớn hơn 0')
+
     const response = await Coupon.create({
         ...req.body,
         expiry: Date.now() + +expiry * 24 * 60 * 60 * 1000

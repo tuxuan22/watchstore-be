@@ -1,11 +1,11 @@
 const mongoose = require('mongoose') // Erase if already required
 
 // Declare the Schema of the Mongo model
-var brandgSchema = new mongoose.Schema({
+var brandSchema = new mongoose.Schema({
     title: {
         type: String,
         required: true,
-        index: true,
+        // trim: true,
     },
 }, {
     timestamps: true,
@@ -13,4 +13,4 @@ var brandgSchema = new mongoose.Schema({
 })
 
 //Export the model
-module.exports = mongoose.model('Brand', brandgSchema)
+module.exports = mongoose.model('Brand', brandSchema)

@@ -13,6 +13,11 @@ var productSchema = new mongoose.Schema({
         unique: true,
         lowercase: true,
     },
+    code: {
+        type: String,
+        required: true,
+        unique: true,
+    },
     description: {
         type: Array,
         required: true,
@@ -46,7 +51,7 @@ var productSchema = new mongoose.Schema({
     },
     color: {
         type: String,
-        // required: true,
+        required: true,
     },
     ratings: [
         {
@@ -59,6 +64,12 @@ var productSchema = new mongoose.Schema({
     totalRatings: {
         type: Number,
         default: 0
+    },
+    discount: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
     },
     variants: [
         {

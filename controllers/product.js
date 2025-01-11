@@ -4,10 +4,10 @@ const slugify = require('vietnamese-slug')
 const skuId = require('uniqid')
 
 const createProduct = asyncHandler(async (req, res) => {
-    const { title, price, description, brand, category, color, quantity } = req.body
+    const { title, code, price, description, brand, category, color, quantity } = req.body
     const thumb = req?.files?.thumb[0]?.path
     const images = req.files?.images?.map(el => el.path)
-    if (!(title && price && description && brand && category && color && quantity)) throw new Error('Nhập vào các trường')
+    if (!(title && code && price && description && brand && category && color && quantity)) throw new Error('Nhập vào các trường')
     req.body.slug = slugify(title)
     if (thumb) req.body.thumb = thumb
     if (images) req.body.images = images
@@ -66,6 +66,7 @@ const getProducts = asyncHandler(async (req, res) => {
             ]
         }
     }
+
     const qr = { ...brandQueryObject, ...formattedQueries, ...queryObject }
 
     let queryCommand = Product.find(qr)
@@ -199,6 +200,27 @@ const addVariant = asyncHandler(async (req, res) => {
     })
 })
 
+const getUserRatings = asyncHandler(async (req, res) => {
+    const { _id } = req.user
+    try {
+        const userRatedProducts = await Product.find({ 'ratings.postedBy': _id }).select('ratings')
+        const userRatings = userRatedProducts.map(product => {
+            return product.ratings.filter(rating => rating.postedBy.toString() === _id.toString())
+        }).flat()
+        return res.status(200).json({
+            success: true,
+            ratings: userRatings,
+        })
+    }
+    catch (err) {
+        console.error('Error fetching user ratings:', err)
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching user ratings',
+        })
+    }
+})
+
 module.exports = {
     createProduct,
     getProduct,
@@ -207,5 +229,6 @@ module.exports = {
     deleteProduct,
     ratings,
     uploadImagesProduct,
-    addVariant
+    addVariant,
+    getUserRatings
 }

@@ -19,9 +19,7 @@ const register = asyncHandler(async (req, res) => {
     else {
         const token = Math.floor(100000 + Math.random() * 900000)
         const emailedited = btoa(email) + '@' + token
-        // res.cookie('dataregister', { ...req.body, token }, { httpOnly: true, maxAge: 15 * 60 * 1000 })
-        // const html = `Xin vui lòng click vào link dưới đây để hoàn tất quá trình đăng ký. Link này sẽ hết hạn sau 15 phút kể từ bây giờ. 
-        //  <a href=${process.env.URL_SERVER}/api/user/email/verify/${token}>Click here</a>`
+
         const newUser = await User.create({
             email: btoa(email) + '@' + token, password, firstname, lastname, mobile
         })
@@ -35,7 +33,7 @@ const register = asyncHandler(async (req, res) => {
         }, [300000])
         return res.json({
             success: newUser ? true : false,
-            mes: newUser ? 'Vui lòng check email để kích hoạt tài khoản' : 'Có lỗi xảy ra'
+            mes: newUser ? 'Vui lòng kiểm tra email để kích hoạt tài khoản' : 'Có lỗi xảy ra'
         })
         // const newUser = await User.create({
         //     email, password, firstname, lastname, mobile
@@ -91,20 +89,25 @@ const login = asyncHandler(async (req, res) => {
             userData
         })
     } else {
-        throw new Error('Thông tin xác thực không hợp lệ!')
+        throw new Error('Email hoặc mật khẩu không đúng')
     }
 })
 
 const getCurrent = asyncHandler(async (req, res) => {
     const { _id } = req.user
 
-    const user = await User.findById(_id).select('-refreshToken -password').populate({
-        path: 'cart',
-        populate: {
-            path: 'product',
-            select: 'title thumb price'
-        }
-    })
+    const user = await User.findById(_id).select('-refreshToken -password')
+        .populate({
+            path: 'cart',
+            populate: {
+                path: 'product',
+                select: 'title thumb price'
+            }
+        })
+        .populate(
+            'wishlist',
+            'title thumb price color'
+        )
     return res.status(200).json({
         success: true,
         rs: user ? user : 'User not found'
@@ -141,7 +144,6 @@ const logout = asyncHandler(async (req, res) => {
     })
 })
 
-//Reset password gui OTP ve mail
 const forgotPassword = asyncHandler(async (req, res) => {
     const { email } = req.body
     if (!email) throw new Error('Vui lòng nhập email')
@@ -251,11 +253,14 @@ const deleteUser = asyncHandler(async (req, res) => {
 
 const updateUser = asyncHandler(async (req, res) => {
     const { _id } = req.user
+    const { firstname, lastname, email, mobile, address } = req.body
+    const data = { firstname, lastname, email, mobile, address }
+    if (req.file) data.avatar = req.file.path
     if (!_id || Object.keys(req.body).length === 0) throw new Error('Nhập vào các trường')
-    const response = await User.findByIdAndUpdate(_id, req.body, { new: true }).select('-password -role')
+    const response = await User.findByIdAndUpdate(_id, data, { new: true }).select('-password -role')
     return res.status(200).json({
         success: response ? true : false,
-        updateUser: response ? response : 'Có lỗi xảy ra'
+        updateUser: response ? 'Cập nhật thành công' : 'Có lỗi xảy ra'
     })
 })
 
@@ -328,6 +333,35 @@ const removeProductInCart = asyncHandler(async (req, res) => {
 
 })
 
+const updateWishlist = asyncHandler(async (req, res) => {
+    const { _id } = req.user
+    const { pid } = req.params
+    const user = await User.findById(_id)
+    const alreadyWishlist = user?.wishlist?.find(el => el.toString() === pid)
+    if (alreadyWishlist) {
+        const response = await User.findByIdAndUpdate(
+            _id,
+            { $pull: { wishlist: pid } },
+            { new: true }
+        )
+        return res.json({
+            success: response ? true : false,
+            mes: response ? 'Đã xóa khỏi danh sách yêu thích' : 'Không thể xóa khỏi danh sách yêu thích'
+        })
+    } else {
+        const response = await User.findByIdAndUpdate(
+            _id,
+            { $push: { wishlist: pid } },
+            { new: true }
+        )
+        return res.json({
+            success: response ? true : false,
+            mes: response ? 'Đã thêm vào danh sách yêu thích' : 'Không thể thêm vào danh sách yêu thích'
+        })
+    }
+
+})
+
 module.exports = {
     register,
     emailVerify,
@@ -343,5 +377,6 @@ module.exports = {
     updateUserByAdmin,
     updateAddressUser,
     updateCart,
-    removeProductInCart
+    removeProductInCart,
+    updateWishlist
 }
