@@ -136,7 +136,7 @@ const ratings = asyncHandler(async (req, res) => {
     // console.log({ ratingProduct })
 
     if (alreadyRating) {
-        await Product.updateOne({
+        const response = await Product.updateOne({
             ratings: { $elemMatch: alreadyRating }
         }, {
             $set: {
@@ -145,8 +145,12 @@ const ratings = asyncHandler(async (req, res) => {
                 'ratings.$.updatedAt': updatedAt
             }
         }, { new: true })
+        return res.status(200).json({
+            success: response ? true : false,
+            mes: response ? 'Đánh giá sản phẩm thành công' : 'Đánh giá sản phẩm thất bại'
+        })
     } else {
-        await Product.findByIdAndUpdate(pid, {
+        const response = await Product.findByIdAndUpdate(pid, {
             $push: {
                 ratings: {
                     star,
@@ -156,6 +160,10 @@ const ratings = asyncHandler(async (req, res) => {
                 }
             }
         }, { new: true })
+        return res.status(200).json({
+            success: response ? true : false,
+            mes: response ? 'Đánh giá sản phẩm thành công' : 'Đánh giá sản phẩm thất bại'
+        })
 
     }
     //Total raings

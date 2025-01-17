@@ -61,7 +61,7 @@ const getCategories = asyncHandler(async (req, res) => {
     }
     //Pagination
     const page = +req.query.page || 1
-    const limit = 50
+    const limit = 5
     const skip = (page - 1) * limit
     queryCommand = queryCommand.skip(skip).limit(limit)
 

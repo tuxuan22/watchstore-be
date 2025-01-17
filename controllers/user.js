@@ -1,4 +1,5 @@
 const User = require('../models/user')
+const Product = require('../models/product')
 const asyncHandler = require('express-async-handler')
 const { generateAccessToken, generateRefreshToken } = require('../middlewares/jwt')
 const jwt = require('jsonwebtoken')
@@ -101,7 +102,7 @@ const getCurrent = asyncHandler(async (req, res) => {
             path: 'cart',
             populate: {
                 path: 'product',
-                select: 'title thumb price'
+                select: 'title thumb price color discount finalPrice'
             }
         })
         .populate(
@@ -110,7 +111,7 @@ const getCurrent = asyncHandler(async (req, res) => {
         )
     return res.status(200).json({
         success: true,
-        rs: user ? user : 'User not found'
+        rs: user ? user : 'Không tìm thấy nguời dùng'
     })
 })
 
@@ -140,7 +141,7 @@ const logout = asyncHandler(async (req, res) => {
     })
     return res.status(200).json({
         success: true,
-        mes: 'Logout successfully'
+        mes: 'Đăng xuất thành công'
     })
 })
 
@@ -172,7 +173,7 @@ const resetPassword = asyncHandler(async (req, res) => {
     if (!password || !token) throw new Error('Nhập vào các trường')
     const passwordResetToken = crypto.createHash('sha256').update(token).digest('hex')
     const user = await User.findOne({ passwordResetToken, passwordResetExpires: { $gt: Date.now() } })
-    if (!user) throw new Error('Invalid reset token')
+    if (!user) throw new Error('Mật khẩu đã được đổi hoặc đường dẫn đã hết hạn')
     user.password = password
     user.passwordResetToken = undefined
     user.passwordChangedAt = Date.now()
@@ -286,19 +287,26 @@ const updateAddressUser = asyncHandler(async (req, res) => {
 
 const updateCart = asyncHandler(async (req, res) => {
     const { _id } = req.user
-    const { pid, quantity = 1, color, price, thumb, title } = req.body
-    if (!pid || !color) throw new Error('Nhập vào các trường')
-    const user = await User.findById(_id).select('cart')
-    const alreadyProduct = user?.cart?.find(el => el.product.toString() === pid && el.color === color)
+    const { pid, quantity = 1 } = req.body
+    if (!pid || !quantity) throw new Error('Nhập vào các trường')
+
+    const product = await Product.findById(pid)
+    if (!product) throw new Error('Product not found')
+
+    const finalPrice = product.discount > 0
+        ? product.price * (1 - product.discount / 100)
+        : product.price
+
+    const user = await User.findById(_id)
+        .select('cart')
+        .populate('cart.product', 'title thumb price color discount finalPrice')
+
+
+    const alreadyProduct = user?.cart?.find(el => el.product._id.toString() === pid && el.product.finalPrice === finalPrice)
     if (alreadyProduct) {
         const response = await User.updateOne(
             { cart: { $elemMatch: alreadyProduct } }, {
-            $set: {
-                'cart.$.thumb': thumb,
-                'cart.$.price': price,
-                'cart.$.title': title,
-                // 'cart.$.quantity': quantity,
-            },
+            $set: { "cart.$.price": finalPrice },
             $inc: { "cart.$.quantity": quantity },
         }, { new: true })
         return res.status(200).json({
@@ -306,7 +314,7 @@ const updateCart = asyncHandler(async (req, res) => {
             mes: response ? 'Giỏ hàng đã được cập nhật' : 'Có lỗi xảy ra'
         })
     } else {
-        const response = await User.findByIdAndUpdate(_id, { $push: { cart: { product: pid, quantity, color, price, thumb, title } } }, { new: true })
+        const response = await User.findByIdAndUpdate(_id, { $push: { cart: { product: pid, quantity, price: finalPrice } } }, { new: true })
         return res.status(200).json({
             success: response ? true : false,
             mes: response ? 'Giỏ hàng đã được cập nhật' : 'Có lỗi xảy ra'
@@ -316,16 +324,16 @@ const updateCart = asyncHandler(async (req, res) => {
 
 const removeProductInCart = asyncHandler(async (req, res) => {
     const { _id } = req.user
-    const { pid, color } = req.params
+    const { pid } = req.params
     const user = await User.findById(_id).select('cart')
-    const alreadyProduct = user?.cart?.find(el => el.product.toString() === pid && el.color === color)
+    const alreadyProduct = user?.cart?.find(el => el.product.toString() === pid)
     if (!alreadyProduct) {
         return res.status(200).json({
             success: true,
             mes: 'Sản phẩm đã được xóa khỏi giỏ hàng'
         })
     }
-    const response = await User.findByIdAndUpdate(_id, { $pull: { cart: { product: pid, color } } }, { new: true })
+    const response = await User.findByIdAndUpdate(_id, { $pull: { cart: { product: pid } } }, { new: true })
     return res.status(200).json({
         success: response ? true : false,
         mes: response ? 'Sản phẩm đã được xóa khỏi giỏ hàng' : 'Có lỗi xảy ra'
@@ -362,6 +370,43 @@ const updateWishlist = asyncHandler(async (req, res) => {
 
 })
 
+const updateQuantityCart = asyncHandler(async (req, res) => {
+    const { _id } = req.user
+    const { pid, color, quantity } = req.body
+
+    if (!pid || !color || !quantity) throw new Error('Missing required fields')
+
+    const user = await User.findById(_id)
+        .select('cart')
+    // .populate({
+    //     path: 'cart.product',
+    //     select: 'color'
+    // })
+    const alreadyProduct = user?.cart?.find(el => el.product.toString() === pid)
+
+    if (!alreadyProduct) {
+        return res.status(404).json({
+            success: false,
+            mes: 'Product not found in cart'
+        })
+    }
+
+    const response = await User.updateOne(
+        { cart: { $elemMatch: alreadyProduct } },
+        {
+            $set: {
+                'cart.$.quantity': quantity
+            }
+        },
+        { new: true }
+    )
+
+    return res.status(200).json({
+        success: response.modifiedCount > 0,
+        mes: response.modifiedCount > 0 ? 'Updated quantity successfully' : 'Something went wrong'
+    })
+})
+
 module.exports = {
     register,
     emailVerify,
@@ -378,5 +423,6 @@ module.exports = {
     updateAddressUser,
     updateCart,
     removeProductInCart,
-    updateWishlist
+    updateWishlist,
+    updateQuantityCart
 }

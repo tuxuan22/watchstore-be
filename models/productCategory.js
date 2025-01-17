@@ -14,10 +14,10 @@ var productCategorySchema = new mongoose.Schema({
         unique: true,
         lowercase: true,
     },
-    // brand: {
-    //     type: Array,
-    //     required: true,
-    // },
+    brand: {
+        type: Array,
+        required: true,
+    },
 }, {
     timestamps: true,
 })

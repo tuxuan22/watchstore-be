@@ -6,11 +6,11 @@ const asyncHandler = require('express-async-handler')
 
 const createOrder = asyncHandler(async (req, res) => {
     const { _id } = req.user
-    const { products, total, address, status } = req.body
+    const { products, total, address, status, paymentMethod } = req.body
     if (address) {
         await User.findByIdAndUpdate(_id, { address, cart: [] })
     }
-    const data = { products, total, orderBy: _id }
+    const data = { products, total, address, orderBy: _id, paymentMethod }
     if (status) data.status = status
     const rs = await Order.create(data)
     return res.status(200).json({
@@ -174,6 +174,17 @@ const getUserOrders = asyncHandler(async (req, res) => {
     const qr = { ...formattedQueries, orderBy: _id }
 
     let queryCommand = Order.find(qr)
+        .populate({
+            path: 'orderBy',
+            select: 'firstname lastname mobile address email',
+        })
+        .populate({
+            path: 'products',
+            populate: {
+                path: 'product',
+                select: 'title thumb price color discount finalPrice ratings'
+            }
+        })
 
     //Sorting
     if (req.query.sort) {
@@ -242,13 +253,18 @@ const getOrders = asyncHandler(async (req, res) => {
     //    }
     const qr = { ...formattedQueries }
 
-    let queryCommand = Order.find(qr).populate({
-        path: 'orderBy',
-        select: 'firstname lastname ',
-        transform: doc => {
-            return doc ? `${doc.firstname} ${doc.lastname}` : '';
-        }
-    })
+    let queryCommand = Order.find(qr)
+        .populate({
+            path: 'orderBy',
+            select: 'firstname lastname mobile address email',
+        })
+        .populate({
+            path: 'products',
+            populate: {
+                path: 'product',
+                select: 'title thumb price color discount finalPrice '
+            }
+        })
 
     //Sorting
     if (req.query.sort) {

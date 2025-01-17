@@ -58,7 +58,11 @@ var productSchema = new mongoose.Schema({
             star: { type: Number },
             postedBy: { type: mongoose.Types.ObjectId, ref: 'User' },
             comment: { type: String },
-            updatedAt: { type: Date }
+            updatedAt: {
+                type: Date,
+                default: Date.now,
+
+            }
         }
     ],
     totalRatings: {
@@ -81,8 +85,17 @@ var productSchema = new mongoose.Schema({
             sku: String,
         }
     ]
-}, {
-    timestamps: true,
+},
+    {
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
+    })
+
+productSchema.virtual('finalPrice').get(function () {
+    return this.discount > 0
+        ? this.price * (1 - this.discount / 100)
+        : this.price
 })
 
 //Export the model

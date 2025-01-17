@@ -8,15 +8,20 @@ var orderSchema = new mongoose.Schema({
             ref: 'Product'
         },
         quantity: Number,
-        color: String,
-        price: Number,
-        thumb: String,
-        title: String,
     }],
+    address: {
+        type: String,
+        required: true,
+    },
     status: {
         type: String,
         default: 'Processing',
         enum: ['Cancelled', 'Processing', 'Succeed']
+    },
+    paymentMethod: {
+        type: String,
+        enum: ['COD', 'PayPal'],
+        default: 'COD',
     },
     total: Number,
     orderBy: {
